@@ -4,14 +4,18 @@ import { Operator } from "@/types/operator";
 import { Station } from "@/types/station";
 import { Train } from "@/types/train";
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export async function callOdptApi(endpoint: string): Promise<any[]> {
-  const response = await fetch(
-    `https://api.odpt.org/api/v4/${endpoint}?acl:consumerKey=${process.env.ODPT_API_KEY}`,
-    {
-      next: { revalidate: 1 },
-    }
-  );
+export async function callOdptApi(
+  endpoint: string,
+  query_params?: Record<string, string>
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+): Promise<any[]> {
+  const params = new URLSearchParams(query_params).toString();
+  const url = `https://api.odpt.org/api/v4/${endpoint}?${
+    params ? `${params}&` : ""
+  }acl:consumerKey=${process.env.ODPT_API_KEY}`;
+  const response = await fetch(url, {
+    next: { revalidate: 1 },
+  });
 
   if (!response.ok) {
     throw new Error(
