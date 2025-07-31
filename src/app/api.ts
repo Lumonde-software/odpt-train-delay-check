@@ -2,7 +2,7 @@
 
 import { Operator } from "@/types/operator";
 import { Station } from "@/types/station";
-import { Train } from "@/types/train";
+import { Train, TrainFare, TrainInformation } from "@/types/train";
 
 export async function callOdptApi(
   endpoint: string,
@@ -28,13 +28,34 @@ export async function callOdptApi(
 
 export async function fetchStations(): Promise<Station[]> {
   const stations = await callOdptApi("odpt:Station");
-  return stations.map((station) => ({
-    id: station["@id"],
-    name: station["dc:title"],
-    sameAs: station["owl:sameAs"],
-    operator: station["odpt:operator"],
-    railway: station["odpt:railway"],
-  }));
+
+  const stationMap = new Map<string, Station>();
+  for (const station of stations) {
+    const id = station["@id"];
+    const name = station["dc:title"];
+    const sameAs = station["owl:sameAs"];
+    const operator = station["odpt:operator"];
+    const railway = station["odpt:railway"];
+
+    const stationWithRailways = stationMap.get(name);
+
+    if (!stationWithRailways) {
+      stationMap.set(name, {
+        id,
+        name,
+        sameAs,
+        operator,
+        railways: [railway],
+      });
+      continue;
+    }
+
+    stationWithRailways.railways.push(railway);
+  }
+
+  return Array.from(stationMap.values()).sort((a, b) =>
+    a.name.localeCompare(b.name)
+  );
 }
 
 export async function fetchOperators(): Promise<Operator[]> {
@@ -53,5 +74,44 @@ export async function fetchRailways(): Promise<Train[]> {
     name: railway["dc:title"],
     sameAs: railway["owl:sameAs"],
     operator: railway["odpt:operator"],
+  }));
+}
+
+export async function fetchTrainInformation(
+  operatorSameAs: string,
+  railwaySameAs: string
+): Promise<TrainInformation[]> {
+  const info = await callOdptApi("odpt:TrainInformation", {
+    "odpt:operator": operatorSameAs,
+    "odpt:railway": railwaySameAs,
+  });
+
+  return info.map((item) => {
+    return {
+      id: item["@id"],
+      date: item["dc:date"],
+      operator: item["odpt:operator"],
+      railway: item["odpt:railway"],
+      informationText: item["odpt:trainInformationText"].ja,
+    };
+  });
+}
+
+export async function fetchRailwayFare(
+  fromStationSameAs: string,
+  toStationSameAs: string
+): Promise<TrainFare[]> {
+  const fare = await callOdptApi("odpt:RailwayFare", {
+    "odpt:fromStation": fromStationSameAs,
+    "odpt:toStation": toStationSameAs,
+  });
+
+  return fare.map((item) => ({
+    id: item["@id"],
+    sameAs: item["owl:sameAs"],
+    operator: item["odpt:operator"],
+    fromStation: item["odpt:fromStation"],
+    toStation: item["odpt:toStation"],
+    ticketFare: item["odpt:ticketFare"],
   }));
 }
