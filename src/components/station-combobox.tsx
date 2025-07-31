@@ -1,6 +1,5 @@
 "use client";
 
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Command,
@@ -16,14 +15,12 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import { Operator } from "@/types/operator";
 import { Station } from "@/types/station";
 import { Check, ChevronsUpDown } from "lucide-react";
 import { useMemo, useState } from "react";
 
 interface StationComboboxProps {
   stations: Station[];
-  operators: Operator[];
   stationId?: string;
   onChange: (value: Station | undefined) => void;
   placeholder: string;
@@ -33,7 +30,6 @@ interface StationComboboxProps {
 
 export function StationCombobox({
   stations,
-  operators,
   stationId,
   onChange,
   placeholder,
@@ -50,8 +46,8 @@ export function StationCombobox({
   const filteredStations = useMemo(() => {
     if (!filterByRailwaySameAs) return stations;
 
-    return stations.filter(
-      (station) => station.railway === filterByRailwaySameAs
+    return stations.filter((station) =>
+      station.railways.includes(filterByRailwaySameAs)
     );
   }, [filterByRailwaySameAs, stations]);
 
@@ -68,10 +64,6 @@ export function StationCombobox({
           {selectedStation ? (
             <div className="flex items-center gap-2">
               <span>{selectedStation.name}</span>
-              <Badge variant="secondary" className="text-xs">
-                {operators.find((op) => op.sameAs === selectedStation.operator)
-                  ?.name || "不明"}
-              </Badge>
             </div>
           ) : (
             placeholder
@@ -90,7 +82,11 @@ export function StationCombobox({
                   key={station.id}
                   value={station.name}
                   onSelect={() => {
-                    onChange(station);
+                    if (station.id === stationId) {
+                      onChange(undefined);
+                    } else {
+                      onChange(station);
+                    }
                     setOpen(false);
                   }}
                 >
@@ -102,10 +98,6 @@ export function StationCombobox({
                   />
                   <div className="flex items-center gap-2">
                     <span>{station.name}</span>
-                    <Badge variant="outline" className="text-xs">
-                      {operators.find((op) => op.sameAs === station.operator)
-                        ?.name || "不明"}
-                    </Badge>
                   </div>
                 </CommandItem>
               ))}

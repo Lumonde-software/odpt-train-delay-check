@@ -24,8 +24,8 @@ import { useMemo, useState } from "react";
 interface TrainComboboxProps {
   trains: Train[];
   operators: Operator[];
-  fromStationOperatorSameAs?: string;
-  toStationOperatorSameAs?: string;
+  fromStationRailways?: string[];
+  toStationRailways?: string[];
   trainId?: string;
   onChange: (value: Train | undefined) => void;
   placeholder: string;
@@ -35,8 +35,8 @@ interface TrainComboboxProps {
 export function TrainCombobox({
   trains,
   operators,
-  fromStationOperatorSameAs,
-  toStationOperatorSameAs,
+  fromStationRailways,
+  toStationRailways,
   trainId,
   onChange,
   placeholder,
@@ -51,30 +51,28 @@ export function TrainCombobox({
   // 利用可能な路線を計算
   const availableTrains = useMemo(() => {
     // 両方の駅が選択されている場合は、両方を通る路線のみ
-    if (fromStationOperatorSameAs && toStationOperatorSameAs) {
+    if (fromStationRailways && toStationRailways) {
       return trains.filter(
         (train) =>
-          train.operator === fromStationOperatorSameAs &&
-          train.operator === toStationOperatorSameAs
+          fromStationRailways.includes(train.sameAs) &&
+          toStationRailways.includes(train.sameAs)
       );
     }
 
     // どちらかの駅のみ選択されている場合は、その駅を通る路線
-    if (fromStationOperatorSameAs) {
-      return trains.filter(
-        (train) => train.operator === fromStationOperatorSameAs
+    if (fromStationRailways) {
+      return trains.filter((train) =>
+        fromStationRailways.includes(train.sameAs)
       );
     }
 
-    if (toStationOperatorSameAs) {
-      return trains.filter(
-        (train) => train.operator === toStationOperatorSameAs
-      );
+    if (toStationRailways) {
+      return trains.filter((train) => toStationRailways.includes(train.sameAs));
     }
 
     // 駅が選択されていない場合は全ての路線
     return trains;
-  }, [fromStationOperatorSameAs, toStationOperatorSameAs, trains]);
+  }, [fromStationRailways, toStationRailways, trains]);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -88,10 +86,6 @@ export function TrainCombobox({
         >
           {selectedTrain ? (
             <div className="flex items-center gap-2">
-              <div
-                className="w-3 h-3 rounded-full"
-                // style={{ backgroundColor: selectedTrain.color }}
-              ></div>
               <span className="text-sm">{selectedTrain.name}</span>
               <Badge variant="secondary" className="text-xs">
                 {operators.find((op) => op.sameAs === selectedTrain.operator)
@@ -115,7 +109,11 @@ export function TrainCombobox({
                   key={train.id}
                   value={train.name}
                   onSelect={() => {
-                    onChange(train);
+                    if (train.id === trainId) {
+                      onChange(undefined);
+                    } else {
+                      onChange(train);
+                    }
                     setOpen(false);
                   }}
                 >
@@ -126,10 +124,6 @@ export function TrainCombobox({
                     )}
                   />
                   <div className="flex items-center gap-2">
-                    <div
-                      className="w-3 h-3 rounded-full"
-                      // style={{ backgroundColor: line.color }}
-                    ></div>
                     <span>{train.name}</span>
                     <Badge variant="outline" className="text-xs">
                       {operators.find((op) => op.sameAs === train.operator)
