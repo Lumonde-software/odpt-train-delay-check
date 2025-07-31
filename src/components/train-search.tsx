@@ -1,8 +1,9 @@
 "use client";
 
+import { fetchRailwayFare, fetchTrainInformation } from "@/app/api";
 import { Operator } from "@/types/operator";
 import { Station } from "@/types/station";
-import { Train } from "@/types/train";
+import { Train, TrainFare, TrainInformation } from "@/types/train";
 import { useState } from "react";
 import { StationCombobox } from "./station-combobox";
 import { TrainCombobox } from "./train-combobox";
@@ -19,8 +20,9 @@ interface SearchedCombination {
   departureStation: Station;
   arrivalStation: Station;
   train: Train;
-  delay: number;
-  searchedAt?: Date;
+  information?: TrainInformation;
+  fare?: TrainFare;
+  searchedAt: Date;
 }
 
 export function TrainSearch({
@@ -41,24 +43,56 @@ export function TrainSearch({
 
   const canSearch = !!departureStation && !!arrivalStation && !!train;
 
-  const handleSearch = () => {
+  const handleSearch = async () => {
     if (!canSearch) return;
     setIsLoading(true);
+
+    const info = await fetchTrainInformation(train.operator, train.sameAs);
+
+    const fromStation =
+      "odpt.Station:" +
+      train.sameAs.split(":")[1] +
+      "." +
+      departureStation.sameAs.split(".").slice(-1).join(".");
+    const toStation =
+      "odpt.Station:" +
+      train.sameAs.split(":")[1] +
+      "." +
+      arrivalStation.sameAs.split(".").slice(-1).join(".");
+    const fare = await fetchRailwayFare(fromStation, toStation);
 
     setSearchedCombination({
       departureStation,
       arrivalStation,
       train,
-      delay: Math.floor(Math.random() * 60), // Simulate a random delay for demonstration
+      information: info ? info[0] : undefined,
+      fare: fare ? fare[0] : undefined,
       searchedAt: new Date(),
     });
+
+    setIsLoading(false);
+  };
+
+  const handleReset = () => {
+    setDepartureStation(undefined);
+    setArrivalStation(undefined);
+    setTrain(undefined);
+    setSearchedCombination(null);
   };
 
   return (
     <div className="flex flex-col gap-6">
       <Card className="p-6 flex flex-col gap-4 w-full">
-        <CardHeader>
+        <CardHeader className="flex justify-between items-center">
           <CardTitle className="text-2xl">遅延検索</CardTitle>
+          <Button
+            className="cursor-pointer"
+            variant="outline"
+            onClick={handleReset}
+            disabled={isLoading}
+          >
+            リセット
+          </Button>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="flex flex-col items-center space-y-4">
@@ -69,7 +103,6 @@ export function TrainSearch({
               </label>
               <StationCombobox
                 stations={stations}
-                operators={operators}
                 stationId={departureStation?.id}
                 onChange={setDepartureStation}
                 placeholder="出発駅を選択"
@@ -88,8 +121,8 @@ export function TrainSearch({
                 <TrainCombobox
                   trains={railways}
                   operators={operators}
-                  fromStationOperatorSameAs={departureStation?.operator}
-                  toStationOperatorSameAs={arrivalStation?.operator}
+                  fromStationRailways={departureStation?.railways}
+                  toStationRailways={arrivalStation?.railways}
                   trainId={train?.id}
                   onChange={setTrain}
                   placeholder="利用路線を選択"
@@ -105,7 +138,6 @@ export function TrainSearch({
               </label>
               <StationCombobox
                 stations={stations}
-                operators={operators}
                 stationId={arrivalStation?.id}
                 onChange={setArrivalStation}
                 placeholder="到着駅を選択"
@@ -139,15 +171,15 @@ export function TrainSearch({
           {searchedCombination ? (
             <div className="flex justify-center">
               <div>
+                <div className="mb-4 text-center">
+                  <span className="text-2xl font-bold text-red-500">
+                    {searchedCombination.information?.informationText ||
+                      "平常運行"}
+                  </span>
+                </div>
                 <p>
                   {"　"}
-                  出発駅 : {searchedCombination.departureStation?.name} (
-                  {operators.find(
-                    (op) =>
-                      op.sameAs ===
-                      searchedCombination.departureStation?.operator
-                  )?.name || "不明"}
-                  )
+                  出発駅 : {searchedCombination.departureStation?.name}
                 </p>
                 <p>
                   利用路線 : {searchedCombination.train?.name} (
@@ -158,14 +190,12 @@ export function TrainSearch({
                 </p>
                 <p>
                   {"　"}
-                  到着駅 : {searchedCombination.arrivalStation?.name} (
-                  {operators.find(
-                    (op) =>
-                      op.sameAs === searchedCombination.arrivalStation?.operator
-                  )?.name || "不明"}
-                  )
+                  到着駅 : {searchedCombination.arrivalStation?.name}
                 </p>
-                <p>遅延時間 : {searchedCombination.delay} 分</p>
+                <p>
+                  {"　　"}
+                  運賃 : {searchedCombination.fare?.ticketFare || "不明"} 円
+                </p>
                 <p>
                   検索時刻 : {searchedCombination.searchedAt?.toLocaleString()}
                 </p>
